@@ -61,31 +61,32 @@ and a **Sign in to lend or borrow** button wired to Clerk.
 ```mermaid
 flowchart LR
   subgraph Browser
-    UI[Next.js App Router UI]
+    UI["Next.js App Router UI"]
   end
-  Clerk[(Clerk)]
+  Clerk[("Clerk")]
   subgraph Convex
-    Q[Queries / mutations<br/>RBAC in every function]
-    DB[(users, tools, loans,<br/>automationEvents,<br/>workflowErrors)]
-    OUT[deliverLoanNotification<br/>scheduled action + retries]
-    HTTP[HTTP actions<br/>/n8n/*]
+    Q["Queries and mutations<br/>RBAC in every function"]
+    DB[("users, tools, loans,<br/>automationEvents,<br/>workflowErrors")]
+    OUT["deliverLoanNotification<br/>scheduled action + retries"]
+    HTTP["HTTP actions<br/>/n8n/*"]
   end
   subgraph n8n
-    W1[Request notification<br/>Webhook]
-    W2[Overdue reminders<br/>Schedule, daily 09:00 UTC]
-    W3[Error handler]
+    W1["Request notification<br/>Webhook"]
+    W2["Overdue reminders<br/>Schedule, daily 09:00 UTC"]
+    W3["Error handler"]
   end
 
-  UI -- sign in --> Clerk
-  UI -- JWT (template "convex") --> Q
+  UI -->|sign in| Clerk
+  UI -->|Clerk JWT, template convex| Q
   Q <--> DB
-  Q -- outbox row + schedule --> OUT
-  OUT -- HMAC-signed POST --> W1
-  W2 -- signed GET overdue loans --> HTTP
-  W2 -- signed POST reminder status --> HTTP
-  W3 -- signed POST error report --> HTTP
+  Q -->|outbox row + schedule| OUT
+  OUT -->|HMAC-signed POST| W1
+  W2 -->|signed GET overdue loans| HTTP
+  W2 -->|signed POST reminder status| HTTP
+  W3 -->|signed POST error report| HTTP
   HTTP <--> DB
-  W1 & W2 -. on failure .-> W3
+  W1 -.->|on failure| W3
+  W2 -.->|on failure| W3
 ```
 
 ### Request notification (Convex → n8n)
