@@ -1,0 +1,99 @@
+{
+  "id": "lendloopErrors01",
+  "name": "LendLoop – Error handler",
+  "active": false,
+  "versionId": "87092b5c-3d67-5eca-80f7-69baac213be3",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "44f33509-06fe-5e3e-8a03-1f77f626c0d7",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Signs a request to the LendLoop Convex HTTP API.\n// Secrets come from the n8n container environment, never from this workflow file.\nconst crypto = require('crypto');\nconst secret = $env.N8N_TO_LENDLOOP_SECRET;\nconst base = $env.LENDLOOP_CONVEX_SITE_URL;\nif (!secret || !base) throw new Error('N8N_TO_LENDLOOP_SECRET and LENDLOOP_CONVEX_SITE_URL must be set');\nfunction signed(method, path, body = '') {\n  const timestamp = Math.floor(Date.now() / 1000).toString();\n  const signature = crypto.createHmac('sha256', secret).update(`${timestamp}.${method}.${path}.${body}`).digest('hex');\n  return { url: base.replace(/\\/$/, '') + path, timestamp, signature, body };\n}\n\n// Runs whenever a LendLoop workflow fails. Logs it and reports it to Convex,\n// where admins see it under \"Automation health\". No payload data is forwarded.\nconst e = $input.first().json;\nconst report = {\n  executionId: String((e.execution && e.execution.id) || `trigger-${Date.now()}`),\n  workflow: (e.workflow && e.workflow.name) || 'unknown workflow',\n  node: (e.execution && e.execution.lastNodeExecuted) || undefined,\n  message: String(\n    (e.execution && e.execution.error && e.execution.error.message) ||\n    (e.trigger && e.trigger.error && e.trigger.error.message) ||\n    'Unknown error',\n  ).slice(0, 500),\n};\nconsole.error(`[LendLoop workflow error] ${JSON.stringify(report)}`);\nreturn [{ json: signed('POST', '/n8n/workflow-error', JSON.stringify(report)) }];\n"
+      },
+      "id": "d5c9bf29-1b7a-57e1-86b0-5b29f48f237e",
+      "name": "Build signed report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}"
+      },
+      "id": "9d8b199c-dffa-50e3-8073-3f15d329a75f",
+      "name": "Report to LendLoop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Build signed report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build signed report": {
+      "main": [
+        [
+          {
+            "node": "Report to LendLoop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

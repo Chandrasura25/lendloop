@@ -1,0 +1,297 @@
+{
+  "id": "lendloopRequest1",
+  "name": "LendLoop – Request notification",
+  "active": false,
+  "versionId": "a1662586-6b95-526b-a900-ec3b740e062d",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-request",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "b7396896-a859-5b4b-becd-d502a2823f81",
+      "name": "Loan event webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "2f7d1c8e-5b7a-4f0e-9a51-1e2b9c4d7a10"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifies the HMAC signature Convex puts on every loan event, then checks for duplicates.\n// Secret: LENDLOOP_TO_N8N_SECRET in the n8n environment (not stored in this workflow).\nconst crypto = require('crypto');\nconst TOLERANCE_SECONDS = 300;\n\nconst secret = $env.LENDLOOP_TO_N8N_SECRET;\nif (!secret) throw new Error('LENDLOOP_TO_N8N_SECRET is not set in the n8n environment');\n\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst timestamp = String(headers['x-lendloop-timestamp'] || '');\nconst signature = String(headers['x-lendloop-signature'] || '').toLowerCase();\n\n// Verify against the exact bytes Convex sent (raw body), not a re-serialised copy.\nlet raw;\nif (item.binary && item.binary.data) {\n  raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\n} else {\n  raw = JSON.stringify(item.json.body);\n}\n\nconst reject = (reason) => [{ json: { valid: false, reason } }];\nconst ts = Number(timestamp);\nif (!/^[0-9a-f]{64}$/.test(signature) || !Number.isInteger(ts)) return reject('missing or malformed signature');\nif (Math.abs(Date.now() / 1000 - ts) > TOLERANCE_SECONDS) return reject('stale timestamp');\n\nconst expected = crypto.createHmac('sha256', secret).update(`${timestamp}.${raw}`).digest();\nif (!crypto.timingSafeEqual(expected, Buffer.from(signature, 'hex'))) return reject('bad signature');\n\nconst event = JSON.parse(raw);\n\n// Convex retries when it doesn't get a 2xx (e.g. a timeout after we already notified).\n// eventIds we've already handled are kept in workflow static data, so a retry isn't sent twice.\nconst seen = $getWorkflowStaticData('global').seenEventIds || [];\nreturn [{ json: { valid: true, duplicate: seen.includes(event.eventId), event } }];\n"
+      },
+      "id": "2027ec57-3680-5057-8cf4-bacf7ca1a562",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "abfd24c9-3055-5654-a455-34637932d280",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "47a0da6a-90cf-5358-83eb-9b143b107610",
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "968bc90c-d90d-56b6-badf-cd7283c37f1e",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "244af444-6d29-556c-8a00-32b199f0ad14",
+      "name": "Already handled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock notification channel: the message is written to the n8n log (`docker compose logs n8n`).\n// To go live, replace this node with Email / Slack / Discord. It only receives what it needs:\n// recipient name + email, tool name, dates, and the other person's first name.\nconst { event } = $input.first().json;\nconst { recipient, loan, counterpartyName: who } = event;\nif (!recipient.email) throw new Error(`No email address for recipient of ${event.eventId}`);\n\nconst dates = `${loan.startDate} to ${loan.endDate}`;\nconst messages = {\n  'loan.created': `${who} would like to borrow your ${loan.toolName} (${dates}). Approve or decline it in LendLoop.`,\n  'loan.cancelled': `${who} withdrew their request for your ${loan.toolName}.`,\n  'loan.approved': `${who} approved your request for the ${loan.toolName} (${dates}).`,\n  'loan.declined': `Your request for the ${loan.toolName} (${dates}) was declined.`,\n  'loan.returned': `${who} marked the ${loan.toolName} as returned. Thanks for borrowing responsibly!`,\n  'loan.listing_removed': `The ${loan.toolName} listing was removed, so your request (${dates}) was cancelled.`,\n};\nconst text = `Hi ${recipient.name}, ${messages[event.type] || `there's an update on ${loan.toolName}.`}`;\nconsole.log(`[LendLoop notification] to=${recipient.email} type=${event.type} id=${event.eventId} :: ${text}`);\n\n// Remember this eventId only after the send succeeded, so a failed send can still be retried.\nconst data = $getWorkflowStaticData('global');\ndata.seenEventIds = [...(data.seenEventIds || []), event.eventId].slice(-1000);\n\nreturn [{ json: { ok: true, eventId: event.eventId, channel: 'log' } }];\n"
+      },
+      "id": "c668d6f1-53c4-5e49-8c38-6a7744ddc031",
+      "name": "Send notification (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "bb5e1c26-0625-555e-a19e-819b93e7f33c",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, duplicate: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "d5aef14e-10d1-52ff-ab6c-e4dffd4888be",
+      "name": "Respond 200 (duplicate)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'unauthorized' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "d0cc340d-7df4-5eca-a643-c37d5b37af4e",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'notification failed' }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "6377c3f1-f020-58fb-9595-4c9f02daac98",
+      "name": "Respond 500",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Sending the notification failed (execution {{ $execution.id }}). Convex will retry."
+      },
+      "id": "83cdd6d4-b781-57e9-962d-f558dd633196",
+      "name": "Fail execution",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        460
+      ]
+    }
+  ],
+  "connections": {
+    "Loan event webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Already handled?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already handled?": {
+      "main": [
+        [
+          {
+            "node": "Respond 200 (duplicate)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send notification (mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send notification (mock)": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 500",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 500": {
+      "main": [
+        [
+          {
+            "node": "Fail execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "lendloopErrors01"
+  },
+  "pinData": {},
+  "tags": []
+}
