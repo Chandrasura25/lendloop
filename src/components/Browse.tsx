@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { CATEGORIES, type Category, MAX_MESSAGE } from "@convex/lib/constants";
@@ -9,6 +9,27 @@ import { Badge, categoryIcon, useAction } from "./shared";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="spread" style={{ alignItems: "center", marginBottom: "0.5rem" }}>
+          <h3 style={{ margin: 0, fontSize: "1.2rem" }}>{title}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function RequestForm({ toolId, onDone }: { toolId: Id<"tools">; onDone: (sent: boolean) => void }) {
@@ -58,6 +79,7 @@ export default function Browse() {
   const tools = useQuery(api.tools.listAll, category ? { category } : {});
   const [requesting, setRequesting] = useState<Id<"tools"> | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const requestingTool = tools?.find((t) => t._id === requesting);
 
   return (
     <section className="stack">
@@ -108,29 +130,35 @@ export default function Browse() {
                 <span>Lent by {tool.isMine ? "you" : tool.ownerName}</span>
                 {tool.ownerTrusted && <Badge kind="trusted">Trusted</Badge>}
               </p>
-              {!tool.isMine &&
-                (requesting === tool._id ? (
-                  <RequestForm
-                    toolId={tool._id}
-                    onDone={(ok) => {
-                      setRequesting(null);
-                      if (ok) setSent(tool.name);
-                    }}
-                  />
-                ) : (
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      setSent(null);
-                      setRequesting(tool._id);
-                    }}
-                  >
-                    Request to borrow
-                  </button>
-                ))}
+              {!tool.isMine && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setSent(null);
+                    setRequesting(tool._id);
+                  }}
+                >
+                  Request to borrow
+                </button>
+              )}
             </li>
           ))}
         </ul>
+      )}
+
+      {requestingTool && (
+        <Modal title={`Borrow ${requestingTool.name}`} onClose={() => setRequesting(null)}>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Lent by {requestingTool.ownerName}. Pick the dates you need it. The owner approves or declines.
+          </p>
+          <RequestForm
+            toolId={requestingTool._id}
+            onDone={(ok) => {
+              setRequesting(null);
+              if (ok) setSent(requestingTool.name);
+            }}
+          />
+        </Modal>
       )}
     </section>
   );
