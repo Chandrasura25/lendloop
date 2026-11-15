@@ -20,6 +20,20 @@ export function timeAgo(ms: number, now = Date.now()): string {
   return `${d} day${d === 1 ? "" : "s"} ago`;
 }
 
+const ICONS: Record<string, string> = {
+  "power tools": "🔌",
+  "hand tools": "🔧",
+  garden: "🌿",
+  kitchen: "🍳",
+  camping: "⛺",
+  cleaning: "🧽",
+};
+
+/** Emoji tile for a tool category. */
+export function categoryIcon(category: string): string {
+  return ICONS[category] ?? "🧰";
+}
+
 export type Activity = {
   kind: "request_notification" | "overdue_reminder";
   event: string | null;

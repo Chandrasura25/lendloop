@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { CATEGORIES, type Category, MAX_MESSAGE } from "@convex/lib/constants";
-import { Badge, useAction } from "./shared";
+import { Badge, categoryIcon, useAction } from "./shared";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -84,8 +84,11 @@ export default function Browse() {
         <ul className="grid">
           {tools.map((tool) => (
             <li key={tool._id} className="card">
-              <div className="spread">
-                <strong>{tool.name}</strong>
+              <div className="spread" style={{ alignItems: "center" }}>
+                <span className="row" style={{ flexWrap: "nowrap" }}>
+                  <span className="tile">{categoryIcon(tool.category)}</span>
+                  <strong>{tool.name}</strong>
+                </span>
                 {tool.status === "available" ? (
                   <Badge kind="available">available</Badge>
                 ) : (
