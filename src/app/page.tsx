@@ -23,7 +23,10 @@ export default function Home() {
       </header>
 
       <section className="hero">
-        <h1>Borrow what you need. Lend what you don&apos;t.</h1>
+        <span className="eyebrow">Neighborhood tool sharing</span>
+        <h1>
+          Borrow what you need. <span>Lend what you don&apos;t.</span>
+        </h1>
         <p className="muted">
           A tool-lending board for your neighborhood. List the drill gathering dust in your garage, borrow a
           tent for the weekend, and let LendLoop handle the reminders.
@@ -33,6 +36,24 @@ export default function Home() {
             <button className="btn primary">Sign in to lend or borrow</button>
           </SignInButton>
         </Show>
+      </section>
+
+      <section className="steps">
+        <div className="step">
+          <b>1</b>
+          <h3>List a tool</h3>
+          <p className="muted">Add the drill, ladder or tent you rarely use.</p>
+        </div>
+        <div className="step">
+          <b>2</b>
+          <h3>Request dates</h3>
+          <p className="muted">Neighbors ask to borrow it for a date range.</p>
+        </div>
+        <div className="step">
+          <b>3</b>
+          <h3>Approve and track</h3>
+          <p className="muted">Approve, hand it over, and get overdue reminders.</p>
+        </div>
       </section>
 
       <section>

@@ -1,5 +1,7 @@
 # LendLoop
 
+**Live demo:** https://lendloop-sigma.vercel.app
+
 **Borrow what you need. Lend what you don't.**
 
 A neighborhood tool-lending board. Neighbors list tools, request to borrow them for a date range,
