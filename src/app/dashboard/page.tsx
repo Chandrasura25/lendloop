@@ -9,6 +9,7 @@ import Admin from "@/components/Admin";
 import Browse from "@/components/Browse";
 import Listings from "@/components/Listings";
 import { IncomingRequests, MyRequests } from "@/components/Loans";
+import Logo from "@/components/Logo";
 import { Badge } from "@/components/shared";
 
 const TABS = [
@@ -50,8 +51,8 @@ export default function Dashboard() {
     <>
       <header className="site-header">
         <div className="site-header-in">
-          <Link href="/" className="brand" style={{ textDecoration: "none" }}>
-            LendLoop
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Logo />
           </Link>
           <div className="row" style={{ gap: "0.75rem" }}>
             {me && (

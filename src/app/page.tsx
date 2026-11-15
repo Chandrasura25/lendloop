@@ -4,6 +4,7 @@ import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "@convex/_generated/api";
+import Logo from "@/components/Logo";
 import { categoryIcon } from "@/components/shared";
 
 const STEPS = [
@@ -27,7 +28,7 @@ export default function Home() {
     <>
       <header className="site-header">
         <div className="site-header-in">
-          <span className="brand">LendLoop</span>
+          <Logo />
           <nav className="row">
             <a className="nav-link" href="#how">How it works</a>
             <a className="nav-link" href="#available">Available</a>

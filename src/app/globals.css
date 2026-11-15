@@ -59,11 +59,6 @@ a { color: inherit; }
   border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
 .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.03em; color: var(--ink); }
-.brand::before {
-  content: ""; width: 1.7rem; height: 1.7rem; border-radius: 9px;
-  background: linear-gradient(135deg, #60a5fa, var(--accent-strong));
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-}
 .hero { padding: 3.5rem 0 1.5rem; max-width: 720px; }
 .hero h1 span { color: var(--accent); }
 .hero p { font-size: 1.15rem; margin: 0.9rem 0 1.6rem; max-width: 560px; }
