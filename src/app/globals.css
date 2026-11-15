@@ -201,3 +201,4 @@ section.stack > h2:first-child, .stack > h2 { margin-top: 0.25rem; }
 .icon-btn:hover { color: var(--ink); border-color: var(--accent); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+.brand b { color: var(--accent); font-weight: 800; }
