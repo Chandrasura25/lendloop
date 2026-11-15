@@ -61,8 +61,8 @@ export default function Browse() {
 
   return (
     <section className="stack">
-      <div className="spread">
-        <label style={{ minWidth: 220 }}>
+      <div className="toolbar">
+        <label className="filter">
           Category
           <select value={category} onChange={(e) => setCategory(e.target.value as Category | "")}>
             <option value="">All categories</option>
@@ -73,7 +73,8 @@ export default function Browse() {
             ))}
           </select>
         </label>
-        {sent && <p className="muted small">Request sent for {sent}. The owner has been notified.</p>}
+        {tools && <span className="muted small">{tools.length} tool{tools.length === 1 ? "" : "s"}</span>}
+        {sent && <p className="notice">✓ Request sent for {sent}. The owner has been notified.</p>}
       </div>
 
       {tools === undefined ? (
@@ -93,7 +94,7 @@ export default function Browse() {
                   <Badge kind="available">available</Badge>
                 ) : (
                   <Badge kind={tool.overdue ? "overdue" : "on loan"}>
-                    {tool.overdue ? "overdue" : `on loan until ${tool.until}`}
+                    {tool.overdue ? "overdue" : `until ${tool.until}`}
                   </Badge>
                 )}
               </div>
@@ -102,9 +103,10 @@ export default function Browse() {
                 <span className="chip">{tool.condition}</span>
               </div>
               {tool.description && <p className="small" style={{ margin: 0 }}>{tool.description}</p>}
-              <p className="muted small" style={{ margin: 0 }}>
-                Lent by {tool.isMine ? "you" : tool.ownerName}{" "}
-                {tool.ownerTrusted && <Badge kind="trusted">Trusted Lender</Badge>}
+              <p className="lender">
+                <span className="avatar sm">{(tool.isMine ? "Y" : tool.ownerName.slice(0, 1)).toUpperCase()}</span>
+                <span>Lent by {tool.isMine ? "you" : tool.ownerName}</span>
+                {tool.ownerTrusted && <Badge kind="trusted">Trusted</Badge>}
               </p>
               {!tool.isMine &&
                 (requesting === tool._id ? (

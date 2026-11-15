@@ -12,10 +12,10 @@ import { IncomingRequests, MyRequests } from "@/components/Loans";
 import { Badge } from "@/components/shared";
 
 const TABS = [
-  { id: "browse", label: "Browse tools" },
-  { id: "listings", label: "My listings" },
-  { id: "requests", label: "My requests" },
-  { id: "incoming", label: "Incoming requests" },
+  { id: "browse", label: "Browse tools", icon: "🔎" },
+  { id: "listings", label: "My listings", icon: "📦" },
+  { id: "requests", label: "My requests", icon: "📅" },
+  { id: "incoming", label: "Incoming requests", icon: "📥" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"] | "admin";
 
@@ -44,25 +44,41 @@ export default function Dashboard() {
   const incoming = useQuery(api.loans.incoming, ready ? {} : "skip");
   const pendingIncoming = incoming?.filter((l) => l.status === "pending").length ?? 0;
 
-  const tabs = me?.role === "admin" ? [...TABS, { id: "admin" as const, label: "Admin" }] : TABS;
+  const tabs = me?.role === "admin" ? [...TABS, { id: "admin" as const, label: "Admin", icon: "🛡️" }] : TABS;
 
   return (
-    <main className="page">
-      <header className="topbar">
-        <Link href="/" className="brand" style={{ textDecoration: "none" }}>
-          LendLoop
-        </Link>
-        <div className="row">
-          {me && (
-            <span className="muted small">
-              Hi {me.name}
-              {me.role === "admin" && <> · <Badge kind="trusted">admin</Badge></>}
-              {me.trustedLender && <> · <Badge kind="trusted">Trusted Lender</Badge></>}
-            </span>
-          )}
-          <UserButton />
+    <>
+      <header className="site-header">
+        <div className="site-header-in">
+          <Link href="/" className="brand" style={{ textDecoration: "none" }}>
+            LendLoop
+          </Link>
+          <div className="row" style={{ gap: "0.75rem" }}>
+            {me && (
+              <span className="user-pill">
+                <span className="avatar">{me.name.slice(0, 1).toUpperCase()}</span>
+                <span className="user-name">{me.name}</span>
+                {me.role === "admin" && <Badge kind="trusted">admin</Badge>}
+                {me.trustedLender && <Badge kind="trusted">Trusted</Badge>}
+              </span>
+            )}
+            <UserButton />
+          </div>
         </div>
       </header>
+
+    <main className="page">
+      <section className="dash-hero">
+        <div>
+          <h1 className="dash-title">{me ? `Welcome back, ${me.name}` : "Your dashboard"}</h1>
+          <p className="muted">Browse what neighbors are lending, manage your listings, and track every request.</p>
+        </div>
+        {me && pendingIncoming > 0 && (
+          <button className="alert-chip" onClick={() => setTab("incoming")}>
+            📥 {pendingIncoming} request{pendingIncoming === 1 ? "" : "s"} waiting for you
+          </button>
+        )}
+      </section>
 
       {!me ? (
         <p className="muted">Loading your account…</p>
@@ -77,8 +93,8 @@ export default function Dashboard() {
                 aria-selected={tab === t.id}
                 onClick={() => setTab(t.id)}
               >
-                {t.label}
-                {t.id === "incoming" && pendingIncoming > 0 ? ` (${pendingIncoming})` : ""}
+                <span aria-hidden="true">{t.icon}</span> {t.label}
+                {t.id === "incoming" && pendingIncoming > 0 ? <span className="count">{pendingIncoming}</span> : null}
               </button>
             ))}
           </nav>
@@ -90,5 +106,6 @@ export default function Dashboard() {
         </>
       )}
     </main>
+    </>
   );
 }
